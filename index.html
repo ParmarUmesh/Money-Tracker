@@ -59,7 +59,7 @@
                 });
         }
 
-        function emailLogin() {
+        /*function emailLogin() {
             const email = document.getElementById("email").value;
             const password = document.getElementById("password").value;
 
@@ -70,9 +70,9 @@
                 .catch(error => {
                     alert(error.message);
                 });
-        }
+        }*/
 
-        function emailSignup() {
+        /*function emailSignup() {
             const email = document.getElementById("email").value;
             const password = document.getElementById("password").value;
 
@@ -83,7 +83,7 @@
                 .catch(error => {
                     alert(error.message);
                 });
-        }
+        }*/
 
         function logout() {
             auth.signOut();
@@ -235,8 +235,8 @@
 
         loadMonthOptions();
         window.googleLogin = googleLogin;
-        window.emailSignup = emailSignup;
-        window.emailLogin = emailLogin;
+        //window.emailSignup = emailSignup;
+        //window.emailLogin = emailLogin;
         window.logoutUser = logoutUser;
 
     </script>
@@ -385,23 +385,24 @@
     <div id="loginScreen" style="max-width:400px;margin:60px auto;text-align:center;">
         <h2>Login</h2>
 
-        <input id="email" type="text" placeholder="Email"
+       <!-- <input id="email" type="text" placeholder="Email"
                style="width:100%;padding:12px;margin-top:10px;border-radius:10px;border:1px solid #ccc;">
         <input id="password" type="password" placeholder="Password"
-               style="width:100%;padding:12px;margin-top:10px;border-radius:10px;border:1px solid #ccc;">
+               style="width:100%;padding:12px;margin-top:10px;border-radius:10px;border:1px solid #ccc;">-->
 
-        <button onclick="emailLogin()"
+       <!-- <button onclick="emailLogin()"
                 style="width:100%;padding:12px;margin-top:15px;background:#2563eb;color:white;border:none;border-radius:10px;">
             Login with Email
-        </button>
+        </button>-->
 
-        <button onclick="emailSignup()"
+        <!--<button onclick="emailSignup()"
                 style="width:100%;padding:12px;margin-top:10px;background:#16a34a;color:white;border:none;border-radius:10px;">
             Create Email Account
-        </button>
+        </button>-->
 
         <button onclick="googleLogin()"
-                style="width:100%;padding:12px;margin-top:15px;background:#db4437;color:white;border:none;border-radius:10px;">
+                style="width:100%;padding:12px;margin-top:15px;background:#2563eb;color:white;border:none;border-radius:10px;">
+            <!--style="width:100%;padding:12px;margin-top:15px;background:#db4437;color:white;border:none;border-radius:10px;">-->
             Login with Google
         </button>
     </div>
