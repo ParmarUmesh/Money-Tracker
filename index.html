@@ -10,7 +10,242 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"></script>
+    <script type="module">
 
+        // -----------------------------
+        // Initialize Firebase FIRST
+        // -----------------------------
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword }
+            from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, addDoc }
+            from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyB5hY4vClCes4_-taA5ngOjDQnE5bDTkXw",
+            authDomain: "money-tracker-77e1a.firebaseapp.com",
+            projectId: "money-tracker-77e1a",
+            storageBucket: "money-tracker-77e1a.firebasestorage.app",
+            messagingSenderId: "322722339208",
+            appId: "1:322722339208:web:be01e38bc128b525edc23d",
+            measurementId: "G-ZXFRL4CLRN"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+        const db = getFirestore(app);
+
+        // Make them globally accessible
+        window.auth = auth;
+        window.provider = provider;
+        window.db = db;
+
+        let user = null;
+        let data = [];
+        let editIndex = null;
+
+        /* ----------------------------------------------------- */
+        /* 2: Authentication (Google + Email/Password) */
+        /* ----------------------------------------------------- */
+
+        function googleLogin() {
+            signInWithPopup(window.auth, window.provider)
+                .then(result => {
+                    alert("Google Login Success!");
+                })
+                .catch(error => {
+                    console.error(error);
+                    alert(error.message);
+                });
+        }
+
+        function emailLogin() {
+            const email = document.getElementById("emailLogin").value;
+            const password = document.getElementById("passwordLogin").value;
+
+            signInWithEmailAndPassword(window.auth, email, password)
+                .then(user => {
+                    alert("Login Success!");
+                })
+                .catch(error => {
+                    alert(error.message);
+                });
+        }
+
+        function emailSignup() {
+            const email = document.getElementById("emailSignup").value;
+            const password = document.getElementById("passwordSignup").value;
+
+            createUserWithEmailAndPassword(window.auth, email, password)
+                .then(user => {
+                    alert("Account Created!");
+                })
+                .catch(error => {
+                    alert(error.message);
+                });
+        }
+
+        function logout() {
+            auth.signOut();
+        }
+
+        auth.onAuthStateChanged(async (u) => {
+            if (u) {
+                user = u;
+                document.getElementById("loginScreen").style.display = "none";
+                document.getElementById("appScreen").style.display = "block";
+
+                loadData();
+            } else {
+                document.getElementById("loginScreen").style.display = "block";
+                document.getElementById("appScreen").style.display = "none";
+            }
+        });
+
+        /* ----------------------------------------------------- */
+        /* 3: FIRESTORE FUNCTIONS */
+        /* ----------------------------------------------------- */
+
+        async function loadData() {
+            const snap = await db.collection("users")
+                .doc(user.uid)
+                .collection("transactions")
+                .orderBy("date", "desc")
+                .get();
+
+            data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+            updateYearOptions();
+            render();
+        }
+
+        async function saveTransaction() {
+            let type = document.getElementById("type").value;
+            let category = document.getElementById("category").value;
+            let amount = Number(document.getElementById("amount").value);
+            let notes = document.getElementById("notes").value;
+
+            if (!amount) return alert("Enter valid amount");
+
+            if (editIndex != null) {
+                let item = data[editIndex];
+                await db.collection("users")
+                    .doc(user.uid)
+                    .collection("transactions")
+                    .doc(item.id)
+                    .update({ type, category, amount, notes });
+
+            } else {
+                await db.collection("users")
+                    .doc(user.uid)
+                    .collection("transactions")
+                    .add({
+                        date: new Date().toISOString().split("T")[0],
+                        type, category, amount, notes
+                    });
+            }
+
+            closeModal();
+            loadData();
+        }
+
+        async function deleteTransaction(i) {
+            if (!confirm("Delete item?")) return;
+            await db.collection("users")
+                .doc(user.uid)
+                .collection("transactions")
+                .doc(data[i].id)
+                .delete();
+            loadData();
+        }
+
+        /* ----------------------------------------------------- */
+        /* 4: UI FUNCTIONS (same as your original) */
+        /* ----------------------------------------------------- */
+
+        function openModal(edit = false, index = null) {
+            document.getElementById("modal").style.display = "flex";
+            editIndex = index;
+
+            if (edit) {
+                const d = data[index];
+                document.getElementById("modalTitle").innerText = "Edit Transaction";
+                document.getElementById("type").value = d.type;
+                document.getElementById("category").value = d.category;
+                document.getElementById("amount").value = d.amount;
+                document.getElementById("notes").value = d.notes;
+            } else {
+                document.getElementById("modalTitle").innerText = "Add Transaction";
+                document.getElementById("amount").value = "";
+                document.getElementById("notes").value = "";
+            }
+        }
+
+        function closeModal() {
+            document.getElementById("modal").style.display = "none";
+        }
+
+        /* YEAR + MONTH FILTERS + RENDER (same as your code) */
+        function loadMonthOptions() {
+            const months = ["All", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            document.getElementById("filterMonthFrom").innerHTML =
+                document.getElementById("filterMonthTo").innerHTML =
+                months.map((m, i) => `<option value="${i}">${m}</option>`).join("");
+        }
+
+        function updateYearOptions() {
+            let fyFrom = document.getElementById("filterYearFrom");
+            let fyTo = document.getElementById("filterYearTo");
+            fyFrom.innerHTML = ""; fyTo.innerHTML = "";
+
+            let years = data.map(d => new Date(d.date).getFullYear());
+            let minYear = years.length ? Math.min(...years) : new Date().getFullYear();
+            let maxYear = years.length ? Math.max(...years) : minYear;
+
+            for (let y = minYear; y <= maxYear + 1; y++) {
+                fyFrom.innerHTML += `<option>${y}</option>`;
+                fyTo.innerHTML += `<option>${y}</option>`;
+            }
+        }
+
+        function render() {
+            let tbody = document.getElementById("tableBody");
+            tbody.innerHTML = "";
+
+            let income = 0, expense = 0;
+
+            data.forEach((d, i) => {
+                if (d.type === "Income") income += d.amount;
+                else expense += d.amount;
+
+                tbody.innerHTML += `
+                          <tr>
+                              <td>${d.date}</td>
+                              <td>${d.type}</td>
+                              <td>${d.category}</td>
+                              <td>${d.type === 'Income' ? '₹' + d.amount : '₹' + d.amount}</td>
+                              <td>${d.notes}</td>
+                              <td>
+                                  <button class="edit-btn" onclick="openModal(true, ${i})">Edit</button>
+                                  <button class="delete-btn" onclick="deleteTransaction(${i})">Delete</button>
+                              </td>
+                          </tr>`;
+            });
+
+            document.getElementById("totalIncome").innerText = "₹" + income;
+            document.getElementById("totalExpense").innerText = "₹" + expense;
+            document.getElementById("balance").innerText = "₹" + (income - expense);
+        }
+
+        loadMonthOptions();
+        window.googleLogin = googleLogin;
+        window.emailSignup = emailSignup;
+        window.emailLogin = emailLogin;
+        window.logoutUser = logoutUser;
+
+    </script>
     <style>
         /* (YOUR ORIGINAL FULL CSS — UNCHANGED) */
         /* I am keeping all your CSS exactly same. */
@@ -254,242 +489,7 @@
         </div>
     </div>
 
-    <script type="module">
-
-        // -----------------------------
-        // Initialize Firebase FIRST
-        // -----------------------------
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword }
-            from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, collection, addDoc }
-            from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyB5hY4vClCes4_-taA5ngOjDQnE5bDTkXw",
-            authDomain: "money-tracker-77e1a.firebaseapp.com",
-            projectId: "money-tracker-77e1a",
-            storageBucket: "money-tracker-77e1a.firebasestorage.app",
-            messagingSenderId: "322722339208",
-            appId: "1:322722339208:web:be01e38bc128b525edc23d",
-            measurementId: "G-ZXFRL4CLRN"
-        };
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const provider = new GoogleAuthProvider();
-        const db = getFirestore(app);
-
-        // Make them globally accessible
-        window.auth = auth;
-        window.provider = provider;
-        window.db = db;
-
-        let user = null;
-        let data = [];
-        let editIndex = null;
-
-        /* ----------------------------------------------------- */
-        /* 2: Authentication (Google + Email/Password) */
-        /* ----------------------------------------------------- */
-
-        function googleLogin() {
-            signInWithPopup(window.auth, window.provider)
-                .then(result => {
-                    alert("Google Login Success!");
-                })
-                .catch(error => {
-                    console.error(error);
-                    alert(error.message);
-                });
-        }
-
-        function emailLogin() {
-            const email = document.getElementById("emailLogin").value;
-            const password = document.getElementById("passwordLogin").value;
-
-            signInWithEmailAndPassword(window.auth, email, password)
-                .then(user => {
-                    alert("Login Success!");
-                })
-                .catch(error => {
-                    alert(error.message);
-                });
-        }
-
-        function emailSignup() {
-            const email = document.getElementById("emailSignup").value;
-            const password = document.getElementById("passwordSignup").value;
-
-            createUserWithEmailAndPassword(window.auth, email, password)
-                .then(user => {
-                    alert("Account Created!");
-                })
-                .catch(error => {
-                    alert(error.message);
-                });
-        }
-
-        function logout() {
-            auth.signOut();
-        }
-
-        auth.onAuthStateChanged(async (u) => {
-            if (u) {
-                user = u;
-                document.getElementById("loginScreen").style.display = "none";
-                document.getElementById("appScreen").style.display = "block";
-
-                loadData();
-            } else {
-                document.getElementById("loginScreen").style.display = "block";
-                document.getElementById("appScreen").style.display = "none";
-            }
-        });
-
-        /* ----------------------------------------------------- */
-        /* 3: FIRESTORE FUNCTIONS */
-        /* ----------------------------------------------------- */
-
-        async function loadData() {
-            const snap = await db.collection("users")
-                .doc(user.uid)
-                .collection("transactions")
-                .orderBy("date", "desc")
-                .get();
-
-            data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-            updateYearOptions();
-            render();
-        }
-
-        async function saveTransaction() {
-            let type = document.getElementById("type").value;
-            let category = document.getElementById("category").value;
-            let amount = Number(document.getElementById("amount").value);
-            let notes = document.getElementById("notes").value;
-
-            if (!amount) return alert("Enter valid amount");
-
-            if (editIndex != null) {
-                let item = data[editIndex];
-                await db.collection("users")
-                    .doc(user.uid)
-                    .collection("transactions")
-                    .doc(item.id)
-                    .update({ type, category, amount, notes });
-
-            } else {
-                await db.collection("users")
-                    .doc(user.uid)
-                    .collection("transactions")
-                    .add({
-                        date: new Date().toISOString().split("T")[0],
-                        type, category, amount, notes
-                    });
-            }
-
-            closeModal();
-            loadData();
-        }
-
-        async function deleteTransaction(i) {
-            if (!confirm("Delete item?")) return;
-            await db.collection("users")
-                .doc(user.uid)
-                .collection("transactions")
-                .doc(data[i].id)
-                .delete();
-            loadData();
-        }
-
-        /* ----------------------------------------------------- */
-        /* 4: UI FUNCTIONS (same as your original) */
-        /* ----------------------------------------------------- */
-
-        function openModal(edit = false, index = null) {
-            document.getElementById("modal").style.display = "flex";
-            editIndex = index;
-
-            if (edit) {
-                const d = data[index];
-                document.getElementById("modalTitle").innerText = "Edit Transaction";
-                document.getElementById("type").value = d.type;
-                document.getElementById("category").value = d.category;
-                document.getElementById("amount").value = d.amount;
-                document.getElementById("notes").value = d.notes;
-            } else {
-                document.getElementById("modalTitle").innerText = "Add Transaction";
-                document.getElementById("amount").value = "";
-                document.getElementById("notes").value = "";
-            }
-        }
-
-        function closeModal() {
-            document.getElementById("modal").style.display = "none";
-        }
-
-        /* YEAR + MONTH FILTERS + RENDER (same as your code) */
-        function loadMonthOptions() {
-            const months = ["All", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-            document.getElementById("filterMonthFrom").innerHTML =
-                document.getElementById("filterMonthTo").innerHTML =
-                months.map((m, i) => `<option value="${i}">${m}</option>`).join("");
-        }
-
-        function updateYearOptions() {
-            let fyFrom = document.getElementById("filterYearFrom");
-            let fyTo = document.getElementById("filterYearTo");
-            fyFrom.innerHTML = ""; fyTo.innerHTML = "";
-
-            let years = data.map(d => new Date(d.date).getFullYear());
-            let minYear = years.length ? Math.min(...years) : new Date().getFullYear();
-            let maxYear = years.length ? Math.max(...years) : minYear;
-
-            for (let y = minYear; y <= maxYear + 1; y++) {
-                fyFrom.innerHTML += `<option>${y}</option>`;
-                fyTo.innerHTML += `<option>${y}</option>`;
-            }
-        }
-
-        function render() {
-            let tbody = document.getElementById("tableBody");
-            tbody.innerHTML = "";
-
-            let income = 0, expense = 0;
-
-            data.forEach((d, i) => {
-                if (d.type === "Income") income += d.amount;
-                else expense += d.amount;
-
-                tbody.innerHTML += `
-                        <tr>
-                            <td>${d.date}</td>
-                            <td>${d.type}</td>
-                            <td>${d.category}</td>
-                            <td>${d.type === 'Income' ? '₹' + d.amount : '₹' + d.amount}</td>
-                            <td>${d.notes}</td>
-                            <td>
-                                <button class="edit-btn" onclick="openModal(true, ${i})">Edit</button>
-                                <button class="delete-btn" onclick="deleteTransaction(${i})">Delete</button>
-                            </td>
-                        </tr>`;
-            });
-
-            document.getElementById("totalIncome").innerText = "₹" + income;
-            document.getElementById("totalExpense").innerText = "₹" + expense;
-            document.getElementById("balance").innerText = "₹" + (income - expense);
-        }
-
-        loadMonthOptions();
-        window.googleLogin = googleLogin;
-        window.emailSignup = emailSignup;
-        window.emailLogin = emailLogin;
-        window.logoutUser = logoutUser;
-
-    </script>
+  
 </body>
 
 </html>
